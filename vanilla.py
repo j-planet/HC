@@ -160,9 +160,28 @@ def treaty_CatXL(deductible, limit):
     return lambda losses: min(max(sum(losses) - deductible, 0), limit - deductible)
 
 
+def treaty_inuring_CatXL(d1, l1, d2, l2):
+    """ generates a 2-level inuring CatXL treaty structure
+    @returns: a function
+    """
+
+    assert l1 > d1 and l2 > d2, 'Limits cannot be less than deductibles.'
+
+    def res_func(losses):
+        payout1 = treaty_CatXL(d1, l1)(losses)
+        leftover = sum(losses) - payout1
+        payout2 = min(max(leftover - d2, 0), l2 - d2)
+
+        return payout1 + payout2
+
+    return res_func
+
+
 # -------- define the treaty ----------
-deductibles = [1000, 1500, 1800]
-limits = [2000, 3000, 4000]
+#deductibles = [1000, 1500, 1800]
+#limits = [2000, 3000, 4000]
+deductibles = [1500]
+limits = [3000]
 
 # -------- find the optimal window ----------
 windowLen = 150   # integer number of days
@@ -176,8 +195,8 @@ lossSd = 50
 for deductible in deductibles:
     for limit in limits:
 
-        treatyFunc = treaty_CatXL(deductible=deductible, limit=limit)
-        #f = plt.gcf()
+        #treatyFunc = treaty_CatXL(deductible=deductible, limit=limit)
+        treatyFunc = treaty_inuring_CatXL(d1 = deductible, l1 = limit, d2 = 200, l2 = 500)
         f = plt.figure()
 
         plotInd = 1
