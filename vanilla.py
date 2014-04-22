@@ -26,15 +26,33 @@ def plot_losses(timeVec, lossVec, bestTime = None, timeWindowLen = None):
     plt.show()
 
 
-def simulate_times_even(expiration, numLosses, verbose=True):
+def simulate_times(expiration, numLosses, method, verbose=True):
     """
     simulate the loss timeline
     time distribution: equal intervals
+    @param method: controls the distribution of time points. is one of:
+        "even": evenly spread out
+        "unif": uniform random
+        "poisson": poisson distribution
     @returns: timeVec
     """
 
-    interval = 1. * expiration / numLosses
-    timeVec = np.arange(start=0, stop=expiration, step=interval).round()    # whole days only
+    assert method in ['even', 'unif', 'poisson']
+
+    timeVec = None
+
+    if method == 'even':
+        interval = 1. * expiration / numLosses
+        timeVec = np.arange(start=0, stop=expiration, step=interval).round()    # whole days only
+
+    elif method == 'unif':
+        timeVec = np.sort(np.random.randint(low=0, high=expiration, size=numLosses))
+
+    elif method == 'poisson':
+        temp = np.random.exponential(expiration/numLosses, numLosses).cumsum()  # simulate
+        timeVec = (temp / max(temp) * expiration).round()    # scale and round
+
+    assert len(timeVec) == numLosses
 
     if verbose:
         print timeVec
@@ -57,7 +75,6 @@ def simulate_losses(numLosses, minLoss, maxLoss, method, sd=0, verbose=True):
 
     assert method in ['uniform', 'monoDec', 'monoInc', 'bell']
 
-    lossVec = None
     noises = np.random.normal(0, sd, size=numLosses) if sd>0 else [0]*numLosses
 
     if method == 'uniform':     # Unif[minLoss, maxLoss]
@@ -73,6 +90,8 @@ def simulate_losses(numLosses, minLoss, maxLoss, method, sd=0, verbose=True):
         means = (maxLoss - minLoss) * norm.pdf(np.linspace(start=-3, stop=3, num=numLosses)) + minLoss
 
     lossVec = means + noises
+
+    assert len(lossVec) == numLosses
 
     if verbose:
         print lossVec
@@ -127,14 +146,15 @@ expiration = 1000
 numLosses = 20
 minLoss = 500
 maxLoss = 1000
+timeDist = 'poisson'    # in ['even', 'unif', 'poisson']
 lossSd = 50
-lossDist = 'bell'
+lossDist = 'bell'       # in ['uniform', 'monoDec', 'monoInc', 'bell']
 
-timeVec = simulate_times_even(expiration, numLosses)
+timeVec = simulate_times(expiration, numLosses, method=timeDist)
 lossVec = simulate_losses(numLosses, minLoss, maxLoss, method=lossDist, sd=lossSd)
 
 # -------- define the treaty ----------
-deductible = 600
+deductible = 1000
 limit = 2400
 treatyFunc = treaty_CatXL(deductible=deductible, limit=limit)
 
