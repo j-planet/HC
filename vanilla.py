@@ -1,4 +1,5 @@
 import numpy as np
+from scipy.stats import norm
 import matplotlib.pyplot as plt
 
 
@@ -49,26 +50,29 @@ def simulate_losses(numLosses, minLoss, maxLoss, method, sd=0, verbose=True):
         "uniform": Unif[minLoss, maxLoss]
         "monoDec": monotonically decreasing from maxLoss to minLoss with white noise N(0, sd)
         "monoInc": monotonically increasing from minLoss to maxLoss with white noise N(0, sd)
+        "bell" : bell shaped between minLoss and maxLoss with white noise N(0, sd)
     @param sd: standard deviation of the white noise term
     @returns: lossVec
     """
 
-    assert method in ['uniform', 'monoDec', 'monoInc']
+    assert method in ['uniform', 'monoDec', 'monoInc', 'bell']
 
-    if method == 'uniform': # Unif[minLoss, maxLoss]
-        lossVec = np.random.uniform(low=minLoss, high=maxLoss, size=numLosses)
+    lossVec = None
+    noises = np.random.normal(0, sd, size=numLosses) if sd>0 else [0]*numLosses
 
-    elif method == 'monoDec': # monotonically decreasing from maxLoss to minLoss with white noise N(0, sd)
+    if method == 'uniform':     # Unif[minLoss, maxLoss]
+        means = np.random.uniform(low=minLoss, high=maxLoss, size=numLosses)
+
+    elif method == 'monoDec':   # monotonically decreasing from maxLoss to minLoss with white noise N(0, sd)
         means = np.arange(start=maxLoss, stop=minLoss, step=-1.*(maxLoss-minLoss)/numLosses)
-        noises = np.random.normal(0, sd, size=numLosses) if sd>0 else [0]*numLosses
 
-        lossVec =  means + noises
-
-    elif method == 'monoInc': # monotonically decreasing from maxLoss to minLoss with white noise N(0, sd)
+    elif method == 'monoInc':   # monotonically decreasing from maxLoss to minLoss with white noise N(0, sd)
         means = np.arange(start=minLoss, stop=maxLoss, step=1.*(maxLoss-minLoss)/numLosses)
-        noises = np.random.normal(0, sd, size=numLosses) if sd>0 else [0]*numLosses
 
-        lossVec =  means + noises
+    elif method == 'bell':  # bell shaped between minLoss and maxLoss with white noise N(0, sd)
+        means = (maxLoss - minLoss) * norm.pdf(np.linspace(start=-3, stop=3, num=numLosses)) + minLoss
+
+    lossVec = means + noises
 
     if verbose:
         print lossVec
@@ -123,8 +127,8 @@ expiration = 1000
 numLosses = 20
 minLoss = 500
 maxLoss = 1000
-lossSd = 100
-lossDist = 'monoInc'
+lossSd = 50
+lossDist = 'bell'
 
 timeVec = simulate_times_even(expiration, numLosses)
 lossVec = simulate_losses(numLosses, minLoss, maxLoss, method=lossDist, sd=lossSd)
