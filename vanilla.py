@@ -3,30 +3,48 @@ from scipy.stats import norm
 import matplotlib.pyplot as plt
 
 
-def plot_losses(timeVec, lossVec, bestTime = None, timeWindowLen = None):
+def plot_losses(timeVec, lossVec, bestTime = None, timeWindowLen=None, show=True, presetTitle=None, xlabel=None):
+    """
+    @param presetTitle: if None, use default; if '', no title
+    @param xlabel: if None, use no xlabel
+    """
 
+    plt.margins(0.5)
     plt.plot(timeVec, lossVec, 'o')
 
-    plt.xlabel('Time')
+    if xlabel is not None:
+        plt.xlabel('Time')
+
     plt.ylabel('Loss')
 
     minX = 2*timeVec[0]-timeVec[1]
     minY = min(lossVec)*0.9
     plt.xlim(xmin=minX)  # padding
     plt.ylim(ymin=minY)
-    title = 'Losses on A Timeline'
+
+    if presetTitle is None:
+        title = 'Losses on A Timeline'
+    elif presetTitle == '':
+        title = None
+    else:
+        title = presetTitle
 
 
     # time window
     if bestTime is not None:
         plt.axvspan(bestTime, bestTime + timeWindowLen - 1, facecolor='g', alpha=0.5)
-        title += ' (Time Window = ' + str(timeWindowLen) + ')'
 
-    plt.title(title)
-    plt.show()
+        if presetTitle is None:
+            title += ' (Time Window = ' + str(timeWindowLen) + ')'
+
+    if title is not None:
+        plt.title(title)
+
+    if show:
+        plt.show()
 
 
-def simulate_times(expiration, numLosses, method, verbose=True):
+def simulate_times(expiration, numLosses, method, verbose=False):
     """
     simulate the loss timeline
     time distribution: equal intervals
@@ -60,7 +78,7 @@ def simulate_times(expiration, numLosses, method, verbose=True):
     return timeVec
 
 
-def simulate_losses(numLosses, minLoss, maxLoss, method, sd=0, verbose=True):
+def simulate_losses(numLosses, minLoss, maxLoss, method, sd=0, verbose=False):
     """
     simulate losses
     loss distribution: uniform random
@@ -99,7 +117,7 @@ def simulate_losses(numLosses, minLoss, maxLoss, method, sd=0, verbose=True):
     return lossVec
 
 
-def find_window(windowLen, treatyFunc, verbose):
+def find_window(windowLen, treatyFunc, timeVec, lossVec, verbose):
     """
     find the optimal window given losses on a timeline
     @returns: bestTime, maxPayout
@@ -107,6 +125,7 @@ def find_window(windowLen, treatyFunc, verbose):
 
     maxPayout = 0
     bestTime = None
+
     for i, t in enumerate(timeVec):
         curTimes = timeVec[i:] < t + windowLen
         curLosses = lossVec[i:][curTimes]
@@ -141,27 +160,44 @@ def treaty_CatXL(deductible, limit):
     return lambda losses: min(max(sum(losses) - deductible, 0), limit - deductible)
 
 
-# -------- simulate losses on a time line ----------
+# -------- define the treaty ----------
+deductibles = [1000, 1500, 1800]
+limits = [2000, 3000, 4000]
+
+# -------- find the optimal window ----------
+windowLen = 150   # integer number of days
+
 expiration = 1000
 numLosses = 20
 minLoss = 500
 maxLoss = 1000
-timeDist = 'poisson'    # in ['even', 'unif', 'poisson']
 lossSd = 50
-lossDist = 'bell'       # in ['uniform', 'monoDec', 'monoInc', 'bell']
 
-timeVec = simulate_times(expiration, numLosses, method=timeDist)
-lossVec = simulate_losses(numLosses, minLoss, maxLoss, method=lossDist, sd=lossSd)
+for deductible in deductibles:
+    for limit in limits:
 
-# -------- define the treaty ----------
-deductible = 1000
-limit = 2400
-treatyFunc = treaty_CatXL(deductible=deductible, limit=limit)
+        treatyFunc = treaty_CatXL(deductible=deductible, limit=limit)
+        #f = plt.gcf()
+        f = plt.figure()
 
-# -------- find the optimal window ----------
-windowLen = 150   # integer number of days
-bestTime, maxPayout = find_window(windowLen, treatyFunc, verbose=2)
-plot_losses(timeVec, lossVec, bestTime=bestTime, timeWindowLen=windowLen)
+        plotInd = 1
+        for rowInd, timeDist in enumerate(['even', 'unif', 'poisson']):
 
+            timeVec = simulate_times(expiration, numLosses, method=timeDist)
 
+            for colInd, lossDist in enumerate(['uniform', 'monoDec', 'monoInc', 'bell']):
+
+                lossVec = simulate_losses(numLosses, minLoss, maxLoss, method=lossDist, sd=lossSd)
+
+                bestTime, maxPayout = find_window(windowLen, treatyFunc, timeVec, lossVec, verbose=0)
+
+                plt.subplot(3, 4, plotInd)
+                plot_losses(timeVec, lossVec, bestTime=bestTime, timeWindowLen=windowLen, show=False, xlabel=None,
+                            presetTitle='times ~ ' + timeDist + '; losses ~ ' + lossDist)
+
+                plotInd += 1
+
+        f.suptitle('Deductible = ' + str(deductible) + '; Limit = ' + str(limit) + '; Window = ' + str(windowLen))
+
+plt.show()
 
