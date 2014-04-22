@@ -178,10 +178,10 @@ def treaty_inuring_CatXL(d1, l1, d2, l2):
 
 
 # -------- define the treaty ----------
-#deductibles = [1000, 1500, 1800]
-#limits = [2000, 3000, 4000]
-deductibles = [1500]
-limits = [3000]
+d1Vec = [1000, 2000]
+l1Vec = [2500, 4000]
+d2Vec = [200, 400]
+l2Vec = [500, 1000]
 
 # -------- find the optimal window ----------
 windowLen = 150   # integer number of days
@@ -192,31 +192,37 @@ minLoss = 500
 maxLoss = 1000
 lossSd = 50
 
-for deductible in deductibles:
-    for limit in limits:
+for d1 in d1Vec:
+    for l1 in l1Vec:
+        for d2 in d2Vec:
+            for l2 in l2Vec:
 
-        #treatyFunc = treaty_CatXL(deductible=deductible, limit=limit)
-        treatyFunc = treaty_inuring_CatXL(d1 = deductible, l1 = limit, d2 = 200, l2 = 500)
-        f = plt.figure()
+                #treatyFunc = treaty_CatXL(deductible=deductible, limit=limit)
+                treatyFunc = treaty_inuring_CatXL(d1 = d1, l1 = l1, d2 = d2, l2 = l2)
+                f = plt.figure(figsize=(22, 12))
 
-        plotInd = 1
-        for rowInd, timeDist in enumerate(['even', 'unif', 'poisson']):
+                plotInd = 1
+                for rowInd, timeDist in enumerate(['even', 'unif', 'poisson']):
 
-            timeVec = simulate_times(expiration, numLosses, method=timeDist)
+                    timeVec = simulate_times(expiration, numLosses, method=timeDist)
 
-            for colInd, lossDist in enumerate(['uniform', 'monoDec', 'monoInc', 'bell']):
+                    for colInd, lossDist in enumerate(['uniform', 'monoDec', 'monoInc', 'bell']):
 
-                lossVec = simulate_losses(numLosses, minLoss, maxLoss, method=lossDist, sd=lossSd)
+                        lossVec = simulate_losses(numLosses, minLoss, maxLoss, method=lossDist, sd=lossSd)
 
-                bestTime, maxPayout = find_window(windowLen, treatyFunc, timeVec, lossVec, verbose=0)
+                        bestTime, maxPayout = find_window(windowLen, treatyFunc, timeVec, lossVec, verbose=0)
 
-                plt.subplot(3, 4, plotInd)
-                plot_losses(timeVec, lossVec, bestTime=bestTime, timeWindowLen=windowLen, show=False, xlabel=None,
-                            presetTitle='times ~ ' + timeDist + '; losses ~ ' + lossDist)
+                        plt.subplot(3, 4, plotInd)
+                        plot_losses(timeVec, lossVec, bestTime=bestTime, timeWindowLen=windowLen, show=False, xlabel=None,
+                                    presetTitle='times ~ ' + timeDist + '; losses ~ ' + lossDist)
 
-                plotInd += 1
+                        plotInd += 1
 
-        f.suptitle('Deductible = ' + str(deductible) + '; Limit = ' + str(limit) + '; Window = ' + str(windowLen))
+                f.suptitle('d1 = ' + str(d1) + '; l1 = ' + str(l1) + '; d2 = ' + str(d2) + '; l2 = ' + str(l2)
+                           + '; Window = ' + str(windowLen))
 
+                f.savefig('/home/jj/code/HoursClause/inuringPlots/' + '_'.join([str(d1), str(l1), str(d2), str(l2)]) + '.png')
+                f.savefig('/home/jj/code/HoursClause/inuringPlots/' + '_'.join([str(d1), str(l1), str(d2), str(l2)]) + '.jpg')
+                
 plt.show()
 
