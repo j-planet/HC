@@ -41,15 +41,34 @@ def simulate_times_even(expiration, numLosses, verbose=True):
     return timeVec
 
 
-def simulate_losses_unif(numLosses, minLoss, maxLoss, verbose=True):
+def simulate_losses(numLosses, minLoss, maxLoss, method, sd=0, verbose=True):
     """
     simulate losses
     loss distribution: uniform random
+    @param method: one of:
+        "uniform": Unif[minLoss, maxLoss]
+        "monoDec": monotonically decreasing from maxLoss to minLoss with white noise N(0, sd)
+        "monoInc": monotonically increasing from minLoss to maxLoss with white noise N(0, sd)
+    @param sd: standard deviation of the white noise term
     @returns: lossVec
     """
 
-    # loss distribution: uniform random
-    lossVec = np.random.uniform(low=minLoss, high=maxLoss, size=numLosses)
+    assert method in ['uniform', 'monoDec', 'monoInc']
+
+    if method == 'uniform': # Unif[minLoss, maxLoss]
+        lossVec = np.random.uniform(low=minLoss, high=maxLoss, size=numLosses)
+
+    elif method == 'monoDec': # monotonically decreasing from maxLoss to minLoss with white noise N(0, sd)
+        means = np.arange(start=maxLoss, stop=minLoss, step=-1.*(maxLoss-minLoss)/numLosses)
+        noises = np.random.normal(0, sd, size=numLosses) if sd>0 else [0]*numLosses
+
+        lossVec =  means + noises
+
+    elif method == 'monoInc': # monotonically decreasing from maxLoss to minLoss with white noise N(0, sd)
+        means = np.arange(start=minLoss, stop=maxLoss, step=1.*(maxLoss-minLoss)/numLosses)
+        noises = np.random.normal(0, sd, size=numLosses) if sd>0 else [0]*numLosses
+
+        lossVec =  means + noises
 
     if verbose:
         print lossVec
@@ -104,18 +123,20 @@ expiration = 1000
 numLosses = 20
 minLoss = 500
 maxLoss = 1000
+lossSd = 100
+lossDist = 'monoInc'
 
 timeVec = simulate_times_even(expiration, numLosses)
-lossVec = simulate_losses_unif(numLosses, minLoss, maxLoss)
+lossVec = simulate_losses(numLosses, minLoss, maxLoss, method=lossDist, sd=lossSd)
 
 # -------- define the treaty ----------
-deductible = 500
-limit = 2000
+deductible = 600
+limit = 2400
 treatyFunc = treaty_CatXL(deductible=deductible, limit=limit)
 
 # -------- find the optimal window ----------
 windowLen = 150   # integer number of days
-bestTime, maxPayout = find_window(windowLen, treatyFunc, verbose=1)
+bestTime, maxPayout = find_window(windowLen, treatyFunc, verbose=2)
 plot_losses(timeVec, lossVec, bestTime=bestTime, timeWindowLen=windowLen)
 
 
