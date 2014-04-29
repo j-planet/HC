@@ -117,39 +117,6 @@ def simulate_losses(numLosses, minLoss, maxLoss, method, sd=0, verbose=False):
     return lossVec
 
 
-def find_window(windowLen, treatyFunc, timeVec, lossVec, verbose):
-    """
-    find the optimal window given losses on a timeline
-    @returns: bestTime, maxPayout
-    """
-
-    maxPayout = 0
-    bestTime = None
-
-    for i, t in enumerate(timeVec):
-        curTimes = timeVec[i:] < t + windowLen
-        curLosses = lossVec[i:][curTimes]
-        payout = treatyFunc(curLosses)
-
-        # printing
-        if verbose >= 2:
-            print '---- t =', t
-            if verbose >= 3:
-                print 'curTimes:', curTimes
-                print 'curLosses:', curLosses
-            print 'payout:', payout
-
-        if payout > maxPayout:
-
-            if verbose >= 1:
-                print 'Replacing old maxPayout', maxPayout, 'with new', payout, '; new best time is', t
-
-            maxPayout = payout
-            bestTime = t
-
-    return bestTime, maxPayout
-
-
 def treaty_CatXL(deductible, limit):
     """ generates the CatXL treaty function
     @returns: a function
@@ -177,52 +144,59 @@ def treaty_inuring_CatXL(d1, l1, d2, l2):
     return res_func
 
 
-# -------- define the treaty ----------
-d1Vec = [1000, 2000]
-l1Vec = [2500, 4000]
-d2Vec = [200, 400]
-l2Vec = [500, 1000]
+def treaty_CatXL_program(dVec, lVec):
+    """
+    generates a program (i.e. non-overlapping CatXL treaties on a single inuring level)
+    @returns: a function
+    """
 
-# -------- find the optimal window ----------
-windowLen = 150   # integer number of days
+    for i, d in enumerate(dVec):
+        assert d < lVec[i], 'Limits cannot be less than attachment points.'
 
-expiration = 1000
-numLosses = 20
-minLoss = 500
-maxLoss = 1000
-lossSd = 50
+        if i > 0:
+            assert d >= lVec[i-1], 'No overlaps are allowed.'
 
-for d1 in d1Vec:
-    for l1 in l1Vec:
-        for d2 in d2Vec:
-            for l2 in l2Vec:
+    def res_func(losses):
+        return sum(treaty_CatXL(d, lVec[i])(losses) for i, d in enumerate(dVec))
 
-                #treatyFunc = treaty_CatXL(deductible=deductible, limit=limit)
-                treatyFunc = treaty_inuring_CatXL(d1 = d1, l1 = l1, d2 = d2, l2 = l2)
-                f = plt.figure(figsize=(22, 12))
+    return res_func
 
-                plotInd = 1
-                for rowInd, timeDist in enumerate(['even', 'unif', 'poisson']):
 
-                    timeVec = simulate_times(expiration, numLosses, method=timeDist)
+def find_window(windowLen, treatyFunc, timeVec, lossVec, verbose=2):
+    """
+    find the optimal window given losses on a timeline
+    @param verbose: verbosity level, up to 3
+    @returns: bestTime, maxPayout
+    """
 
-                    for colInd, lossDist in enumerate(['uniform', 'monoDec', 'monoInc', 'bell']):
+    maxPayout = 0
+    bestTimes = []
 
-                        lossVec = simulate_losses(numLosses, minLoss, maxLoss, method=lossDist, sd=lossSd)
+    for i, t in enumerate(timeVec):
+        curTimes = timeVec[i:] < t + windowLen
+        curLosses = lossVec[i:][curTimes]
+        payout = treatyFunc(curLosses)
 
-                        bestTime, maxPayout = find_window(windowLen, treatyFunc, timeVec, lossVec, verbose=0)
+        # printing
+        if verbose >= 2:
+            print '---- t =', t
+            if verbose >= 3:
+                print 'curTimes:', curTimes
+                print 'curLosses:', curLosses
+            print 'payout:', payout
 
-                        plt.subplot(3, 4, plotInd)
-                        plot_losses(timeVec, lossVec, bestTime=bestTime, timeWindowLen=windowLen, show=False, xlabel=None,
-                                    presetTitle='times ~ ' + timeDist + '; losses ~ ' + lossDist)
+        if payout == maxPayout:
+            if verbose >= 1:
+                print 'Duplicate max payout found. Adding time', t
 
-                        plotInd += 1
+            bestTimes.append(t)
 
-                f.suptitle('d1 = ' + str(d1) + '; l1 = ' + str(l1) + '; d2 = ' + str(d2) + '; l2 = ' + str(l2)
-                           + '; Window = ' + str(windowLen))
+        elif payout > maxPayout:
 
-                f.savefig('/home/jj/code/HoursClause/inuringPlots/' + '_'.join([str(d1), str(l1), str(d2), str(l2)]) + '.png')
-                f.savefig('/home/jj/code/HoursClause/inuringPlots/' + '_'.join([str(d1), str(l1), str(d2), str(l2)]) + '.jpg')
-                
-plt.show()
+            if verbose >= 1:
+                print 'Replacing old maxPayout', maxPayout, 'with new', payout, '; new best time is', t
 
+            maxPayout = payout
+            bestTimes = [t]
+
+    return bestTimes[0], bestTimes, maxPayout
